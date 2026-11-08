@@ -108,7 +108,7 @@ export default function ModoTV() {
               <span className="absolute inset-x-0 top-0 h-1.5" style={{ background: un.cor }} />
               <p className="text-xl sm:text-2xl font-bold">{un.nome}</p>
               <p className="text-white/50">{un.cidade}</p>
-              <p className="num text-4xl sm:text-5xl font-extrabold mt-auto pt-6 tracking-tight">{formatBRL(u.faturamento)}</p>
+              <p className="num whitespace-nowrap text-4xl xl:text-[2.6rem] 2xl:text-5xl font-extrabold mt-auto pt-6 tracking-tight">{formatBRL(u.faturamento)}</p>
               <div className="mt-3 flex justify-between text-white/60 text-base sm:text-lg">
                 <span><b className="num text-white">{formatInt(u.clientes)}</b> clientes</span>
                 <span><b className="num text-white">{formatBRL(u.rsPorKg)}</b>/kg</span>

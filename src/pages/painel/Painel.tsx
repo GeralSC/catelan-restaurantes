@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import {
   AlertOctagon, Banknote, Beef, Check, Monitor, PackageX, Refrigerator, ShoppingBag, TrendingDown, TrendingUp, Users,
@@ -24,6 +24,7 @@ export default function Painel() {
   const { porUnidade, grafico, pedidosOnlineHoje, faturamentoOnlineHoje, ultimosPedidos } = usePainel()
   const alertas = useAlertas()
   const critico = useEstoqueCritico(filtro === 'todas' ? undefined : filtro)
+  const [todosAlertas, setTodosAlertas] = useState(false)
 
   const visiveis = filtro === 'todas' ? porUnidade : porUnidade.filter((u) => u.unidadeId === filtro)
   const total = visiveis.reduce((s, u) => s + u.faturamento, 0)
@@ -79,7 +80,12 @@ export default function Painel() {
               <span className="h-2.5 w-2.5 rounded-full bg-danger animate-flash" />
               {novos.length === 1 ? '1 alerta precisa da sua atenção' : `${novos.length} alertas precisam da sua atenção`}
             </div>
-            {novos.map((a) => <CardAlerta key={a.id} a={a} />)}
+            {(todosAlertas ? novos : novos.slice(0, 2)).map((a) => <CardAlerta key={a.id} a={a} />)}
+            {novos.length > 2 && (
+              <button onClick={() => setTodosAlertas((v) => !v)} className="w-full h-11 rounded-xl border border-danger/30 text-danger font-semibold text-sm bg-white">
+                {todosAlertas ? 'Mostrar menos' : `Ver mais ${novos.length - 2} ${novos.length - 2 === 1 ? 'alerta' : 'alertas'}`}
+              </button>
+            )}
           </section>
         )}
 
@@ -120,7 +126,7 @@ export default function Painel() {
                   <span className="absolute left-0 top-0 bottom-0 w-1.5" style={{ background: un.cor }} />
                   <div className="flex items-start justify-between gap-2 pl-1">
                     <div className="min-w-0">
-                      <p className="font-bold truncate">{un.nome}</p>
+                      <p className="font-bold truncate">{un.nome}{un.tipo === 'chapa-buffet' ? ` · ${un.cidade}` : ''}</p>
                       <p className="text-xs text-muted">{un.cidade} · {un.descricao}</p>
                     </div>
                     <Badge cor={u.aberta ? 'verde' : 'cinza'}>
@@ -151,14 +157,14 @@ export default function Painel() {
                 <BarChart data={grafico} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                   <CartesianGrid vertical={false} stroke="#E7E5E4" />
                   <XAxis dataKey="dia" tickLine={false} axisLine={false} tick={{ fontSize: 12, fill: '#78716C' }} />
-                  <YAxis tickLine={false} axisLine={false} width={44} tick={{ fontSize: 11, fill: '#78716C' }} tickFormatter={(v) => `${Math.round(v / 1000)} mil`} />
+                  <YAxis tickLine={false} axisLine={false} width={56} tick={{ fontSize: 11, fill: '#78716C' }} tickFormatter={(v) => `${Math.round(v / 1000)} mil`} />
                   <Tooltip
                     cursor={{ fill: 'rgba(28,25,23,.04)' }}
                     formatter={(v: number, k: string) => [formatBRL(v), `${getUnidade(k).nome} ${getUnidade(k).tipo === 'chapa-buffet' ? getUnidade(k).cidade : ''}`]}
                     contentStyle={{ borderRadius: 12, border: '1px solid #E7E5E4', fontSize: 13 }}
                   />
                   {unidadesGrafico.map((u, i) => (
-                    <Bar key={u.id} dataKey={u.id} stackId="a" fill={u.cor} radius={i === unidadesGrafico.length - 1 ? [6, 6, 0, 0] : 0} maxBarSize={44} />
+                    <Bar key={u.id} dataKey={u.id} stackId="a" isAnimationActive={false} fill={u.cor} radius={i === unidadesGrafico.length - 1 ? [6, 6, 0, 0] : 0} maxBarSize={44} />
                   ))}
                 </BarChart>
               </ResponsiveContainer>
@@ -271,7 +277,7 @@ function CardAlerta({ a }: { a: Alerta }) {
   const Icone = iconeAlerta[a.tipo]
   const un = getUnidade(a.unidadeId)
   return (
-    <div className={`rounded-2xl p-4 flex gap-3 animate-slide-up ${a.lido ? 'bg-white border border-surface-line' : 'bg-danger text-white shadow-float'}`}>
+    <div className={`rounded-2xl p-3.5 flex gap-3 animate-slide-up ${a.lido ? 'bg-white border border-surface-line' : 'bg-danger text-white shadow-float'}`}>
       <span className={`h-11 w-11 rounded-xl grid place-items-center shrink-0 ${a.lido ? 'bg-muted-light text-muted' : 'bg-white/15'}`}>
         <Icone size={22} />
       </span>

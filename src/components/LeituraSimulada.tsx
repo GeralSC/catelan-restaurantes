@@ -10,7 +10,10 @@ export function LeituraSimulada({
   const cb = useRef({ onLido, onFechar, valor })
   cb.current = { onLido, onFechar, valor }
   useEffect(() => {
-    if (!aberto) return setLido(false)
+    if (!aberto) {
+      setLido(false)
+      return
+    }
     const t1 = setTimeout(() => setLido(true), 1400)
     const t2 = setTimeout(() => {
       cb.current.onLido(cb.current.valor)

@@ -101,9 +101,9 @@ function ListaMesas({ unidadeId, onAbrir }: { unidadeId: UnidadeId; onAbrir: (id
 
       {!busca && abertas.filter((c) => c.status === 'aberta').length > 0 && (
         <Secao titulo="Mesas ainda consumindo">
-          <div className="flex flex-wrap gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
             {abertas.filter((c) => c.status === 'aberta').map((c) => (
-              <button key={c.id} onClick={() => onAbrir(c.id)} className="card px-3 h-11 flex items-center gap-2 text-sm font-semibold">
+              <button key={c.id} onClick={() => onAbrir(c.id)} className="card px-3 h-11 flex items-center gap-2 text-sm font-semibold justify-between">
                 <span className="h-2.5 w-2.5 rounded-full bg-primary" /> Mesa {c.mesa}
                 <span className="num text-muted font-normal">{formatBRL(totalComanda(c))}</span>
               </button>

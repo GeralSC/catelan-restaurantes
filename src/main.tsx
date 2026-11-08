@@ -17,7 +17,9 @@ const PedidoOnline = lazy(() => import('./pages/pedido/PedidoOnline'))
 
 function RolarParaTopo() {
   const { pathname } = useLocation()
-  useEffect(() => window.scrollTo(0, 0), [pathname])
+  useEffect(() => {
+    window.scrollTo(0, 0)
+  }, [pathname])
   return null
 }
 

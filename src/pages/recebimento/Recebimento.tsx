@@ -120,7 +120,7 @@ export default function Recebimento() {
                     <div className="flex-1 min-w-0">
                       <p className="font-mono font-bold text-[17px]">{t.lacre}</p>
                       <p className="text-sm text-muted truncate">
-                        De {getUnidade(t.origemId).nome} · enviado {formatQuando(t.enviadoEm)}
+                        {t.origemId === 'central' ? 'Central' : getUnidade(t.origemId).nome} · enviado {formatQuando(t.enviadoEm)}
                       </p>
                     </div>
                     <div className="text-right shrink-0">

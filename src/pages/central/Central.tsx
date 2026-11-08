@@ -94,7 +94,7 @@ function EntradaNota({ operador }: { operador: string }) {
 
       <div className="grid grid-cols-2 gap-2">
         <Button variante="dark" tamanho="lg" onClick={() => setBipando(true)}><Barcode size={22} /> Bipar</Button>
-        <Button variante="secondary" tamanho="lg" onClick={() => setPorPeso(true)}><Scale size={22} /> Item por peso</Button>
+        <Button variante="secondary" tamanho="lg" onClick={() => setPorPeso(true)}><Scale size={22} /> Por peso</Button>
       </div>
 
       <Card>

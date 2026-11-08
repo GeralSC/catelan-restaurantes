@@ -55,6 +55,7 @@ export function Layout({ perfil, unidadeId, onTrocarUnidade, opcoesUnidade, subt
           </div>
           <button
             onClick={() => nav('/')}
+            aria-label="Trocar perfil"
             className="h-10 px-3 rounded-xl border border-surface-line text-sm font-semibold flex items-center gap-1.5 hover:bg-muted-light shrink-0"
           >
             <ArrowLeftRight size={16} />

@@ -25,9 +25,8 @@ for (let dias = 7; dias >= 1; dias--) {
   const fator = dow === 0 ? 1.45 : dow === 6 ? 1.3 : dow === 5 ? 1.15 : dow === 1 ? 0.78 : 1
   for (const u of unidadesRestaurante) {
     const b = baseDiaria[u.id as keyof typeof baseDiaria]
-    // churrascaria fecha segunda; restaurantes de chapa fecham domingo
-    const fechado = (u.id === 'gado-nobre' && dow === 1) || (u.tipo === 'chapa-buffet' && dow === 0)
-    const valor = fechado ? 0 : arred(b.valor * fator * (0.9 + rnd() * 0.2), 2)
+    // No protótipo todas as unidades abrem todos os dias (evita dia zerado no comparativo).
+    const valor = arred(b.valor * fator * (0.9 + rnd() * 0.2), 2)
     historicoInicial.push({
       data: dataISO(dias),
       unidadeId: u.id,
@@ -41,25 +40,35 @@ for (let dias = 7; dias >= 1; dias--) {
 // ---------- Vendas de hoje que já aconteceram antes da demonstração ----------
 const formas: FormaPagamento[] = ['pix', 'pix', 'credito', 'credito', 'debito', 'dinheiro']
 const vendasIniciais: Venda[] = []
-const vendasPorUnidade: Record<string, { qtd: number; min: number; max: number; pessoas: [number, number]; origem: Venda['origem'] }> = {
-  'gado-nobre': { qtd: 50, min: 120, max: 520, pessoas: [1, 6], origem: 'mesa' },
-  'rancho-tijucas': { qtd: 84, min: 22, max: 95, pessoas: [1, 3], origem: 'mesa' },
-  'rancho-biguacu': { qtd: 80, min: 20, max: 90, pessoas: [1, 3], origem: 'mesa' },
-  'beira-rio': { qtd: 92, min: 18, max: 110, pessoas: [1, 4], origem: 'mesa' },
+// O total de hoje de cada unidade fica ancorado no mesmo dia da semana passada, com uma variação
+// fixa (para o comparativo do painel fazer sentido em qualquer dia em que a demo for feita).
+const vendasPorUnidade: Record<string, { variacao: number; ticketVenda: number; pessoas: [number, number] }> = {
+  'gado-nobre': { variacao: 0.064, ticketVenda: 330, pessoas: [1, 6] },
+  'rancho-tijucas': { variacao: 0.038, ticketVenda: 56, pessoas: [1, 3] },
+  'rancho-biguacu': { variacao: -0.027, ticketVenda: 54, pessoas: [1, 3] },
+  'beira-rio': { variacao: 0.051, ticketVenda: 66, pessoas: [1, 4] },
 }
 const caixaDe: Record<string, string> = {
   'gado-nobre': 'Patrícia', 'rancho-tijucas': 'Fernanda', 'rancho-biguacu': 'Gustavo', 'beira-rio': 'Vanessa',
 }
 for (const [unidadeId, cfg] of Object.entries(vendasPorUnidade)) {
-  for (let i = 0; i < cfg.qtd; i++) {
-    const total = arred(cfg.min + rnd() * (cfg.max - cfg.min), 2)
+  const semanaPassada = historicoInicial.find((h) => h.unidadeId === unidadeId && h.data === dataISO(7))!.valor
+  // pedidos online do Beira Rio também contam no faturamento: descontamos uma estimativa
+  const alvo = semanaPassada * (1 + cfg.variacao) - (unidadeId === 'beira-rio' ? 406 : 0)
+  const qtd = Math.max(8, Math.round(alvo / cfg.ticketVenda))
+  const brutos = Array.from({ length: qtd }, () => 0.55 + rnd() * 0.9)
+  const soma = brutos.reduce((a, b) => a + b, 0)
+  let acumulado = 0
+  brutos.forEach((b, i) => {
+    const total = i === qtd - 1 ? arred(alvo - acumulado) : arred((b / soma) * alvo)
+    acumulado += total
     const forma = formas[Math.floor(rnd() * formas.length)]!
     const ehMarmita = unidadeId !== 'gado-nobre' && rnd() < 0.3
-    const minuto = 11 * 60 + Math.floor((i / cfg.qtd) * 200)
+    const minuto = 11 * 60 + Math.floor((i / qtd) * 200)
     vendasIniciais.push({
       id: `v-ini-${unidadeId}-${i}`,
       unidadeId: unidadeId as UnidadeId,
-      origem: ehMarmita ? 'marmita' : cfg.origem,
+      origem: ehMarmita ? 'marmita' : 'mesa',
       descricao: ehMarmita ? 'Marmita balcão' : `Mesa ${1 + Math.floor(rnd() * 16)}`,
       total,
       pagamentos: [{ forma, valor: total }],
@@ -67,7 +76,7 @@ for (const [unidadeId, cfg] of Object.entries(vendasPorUnidade)) {
       feitaPor: caixaDe[unidadeId]!,
       em: emHora(`${String(Math.floor(minuto / 60)).padStart(2, '0')}:${String(minuto % 60).padStart(2, '0')}`),
     })
-  }
+  })
 }
 export { vendasIniciais }
 
