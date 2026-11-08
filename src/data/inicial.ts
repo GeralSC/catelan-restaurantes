@@ -42,10 +42,10 @@ for (let dias = 7; dias >= 1; dias--) {
 const formas: FormaPagamento[] = ['pix', 'pix', 'credito', 'credito', 'debito', 'dinheiro']
 const vendasIniciais: Venda[] = []
 const vendasPorUnidade: Record<string, { qtd: number; min: number; max: number; pessoas: [number, number]; origem: Venda['origem'] }> = {
-  'gado-nobre': { qtd: 38, min: 120, max: 520, pessoas: [1, 6], origem: 'mesa' },
-  'rancho-tijucas': { qtd: 64, min: 22, max: 95, pessoas: [1, 3], origem: 'mesa' },
-  'rancho-biguacu': { qtd: 58, min: 20, max: 90, pessoas: [1, 3], origem: 'mesa' },
-  'beira-rio': { qtd: 71, min: 18, max: 110, pessoas: [1, 4], origem: 'mesa' },
+  'gado-nobre': { qtd: 50, min: 120, max: 520, pessoas: [1, 6], origem: 'mesa' },
+  'rancho-tijucas': { qtd: 84, min: 22, max: 95, pessoas: [1, 3], origem: 'mesa' },
+  'rancho-biguacu': { qtd: 80, min: 20, max: 90, pessoas: [1, 3], origem: 'mesa' },
+  'beira-rio': { qtd: 92, min: 18, max: 110, pessoas: [1, 4], origem: 'mesa' },
 }
 const caixaDe: Record<string, string> = {
   'gado-nobre': 'Patrícia', 'rancho-tijucas': 'Fernanda', 'rancho-biguacu': 'Gustavo', 'beira-rio': 'Vanessa',
