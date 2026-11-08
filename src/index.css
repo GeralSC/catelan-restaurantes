@@ -1,0 +1,22 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html { -webkit-tap-highlight-color: transparent; }
+  body { @apply bg-surface text-ink font-sans antialiased; overflow-x: hidden; }
+  input, select, textarea, button { font: inherit; }
+  input[type='number']::-webkit-inner-spin-button { -webkit-appearance: none; }
+}
+
+@layer components {
+  .num { font-variant-numeric: tabular-nums; }
+  .card { @apply bg-surface-card rounded-2xl shadow-card border border-surface-line; }
+  .input { @apply w-full h-12 rounded-xl border border-surface-line bg-white px-4 text-base outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 transition; }
+  .label { @apply block text-sm font-medium text-ink-soft mb-1.5; }
+  .chip { @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold; }
+}
+
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { scrollbar-width: none; }
+.pb-safe { padding-bottom: max(1rem, env(safe-area-inset-bottom)); }
