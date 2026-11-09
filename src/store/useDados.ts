@@ -2,16 +2,18 @@
 // As telas NÃO usam este arquivo direto: passam pela camada src/services/,
 // que é o ponto único a trocar quando o Supabase for conectado.
 import { create } from 'zustand'
+import { createJSONStorage, persist, type StateStorage } from 'zustand/middleware'
 import type {
   Alerta, Comanda, FechamentoCaixa, FormaPagamento, ItemComanda, ItemEstoque, ItemNota, Mesa, Movimento,
   NotaEntrada, Pagamento, PedidoOnline, ResultadoConferencia, RetiradaFreezer, Transferencia, UnidadeId, Venda,
 } from '../types'
 import {
   alertasIniciais, comandasIniciais, estoqueInicial, historicoInicial, mesasIniciais, movimentosIniciais,
-  notasIniciais, pedidosIniciais, retiradasIniciais, transferenciasIniciais, vendasIniciais,
+  notasIniciais, pedidosIniciais, proximoPedidoInicial, retiradasIniciais, transferenciasIniciais, vendasIniciais,
 } from '../data/inicial'
 import { bairros, getCardapio, getProduto, getUnidade, TOLERANCIA_DIVERGENCIA } from '../data/cadastros'
 import { agoraISO, dentroDoHorario, novoId } from '../lib/tempo'
+import { DIA_REF, ehDiaOperacao } from '../lib/referencia'
 import { arred, formatBRL, formatKg } from '../lib/format'
 
 export interface DadosState {
@@ -46,6 +48,7 @@ export interface DadosState {
   fazerPedido: (d: Omit<PedidoOnline, 'id' | 'numero' | 'status' | 'em' | 'subtotal' | 'taxaEntrega' | 'total'>) => PedidoOnline
   avancarPedido: (id: string) => void
   marcarAlertaLido: (id: string) => void
+  reiniciarDemo: () => void
 }
 
 const somaItens = (itens: ItemComanda[]) =>
@@ -65,7 +68,12 @@ function ajustarEstoque(estoque: ItemEstoque[], unidadeId: UnidadeId, produtoId:
 
 const mov = (m: Omit<Movimento, 'id' | 'em'>): Movimento => ({ ...m, id: novoId('mov'), em: agoraISO() })
 
-export const useDados = create<DadosState>((set, get) => ({
+// Só os dados (sem as funções) — é o que vai para o localStorage.
+type Dados = Pick<DadosState,
+  'historico' | 'estoque' | 'movimentos' | 'transferencias' | 'mesas' | 'comandas' | 'vendas' | 'fechamentos'
+  | 'retiradas' | 'pedidos' | 'alertas' | 'notas' | 'proximoLacre' | 'proximoPedido'>
+
+const estadoInicial = (): Dados => ({
   historico: historicoInicial,
   estoque: estoqueInicial,
   movimentos: movimentosIniciais,
@@ -79,7 +87,24 @@ export const useDados = create<DadosState>((set, get) => ({
   alertas: alertasIniciais,
   notas: notasIniciais,
   proximoLacre: 4825,
-  proximoPedido: 1047,
+  proximoPedido: proximoPedidoInicial,
+})
+
+// localStorage pode não existir ou falhar (aba anônima, cota cheia, bloqueado): nunca quebra a demo.
+const CHAVE = 'catelan-demo'
+const armazenamento: StateStorage = {
+  getItem: (k) => { try { return localStorage.getItem(k) } catch { return null } },
+  setItem: (k, v) => { try { localStorage.setItem(k, v) } catch { /* segue só em memória */ } },
+  removeItem: (k) => { try { localStorage.removeItem(k) } catch { /* nada */ } },
+}
+
+export const useDados = create<DadosState>()(persist((set, get) => ({
+  ...estadoInicial(),
+
+  reiniciarDemo: () => {
+    armazenamento.removeItem(CHAVE)
+    set(estadoInicial())
+  },
 
   conferirLacre: (lacre, kg, por, unidadeId) => {
     const alvo = lacre.trim().toUpperCase()
@@ -334,13 +359,31 @@ export const useDados = create<DadosState>((set, get) => ({
   },
 
   marcarAlertaLido: (id) => set((s) => ({ alertas: s.alertas.map((a) => (a.id === id ? { ...a, lido: true } : a)) })),
+}), {
+  name: CHAVE,
+  version: 1,
+  storage: createJSONStorage(() => armazenamento),
+  partialize: (s) => ({ ...pegarDados(s), diaRef: DIA_REF }),
+  // Dados salvos de outro dia de operação são descartados: a demo recomeça com horários atuais.
+  merge: (salvo, atual) => {
+    const x = salvo as (Partial<Dados> & { diaRef?: string }) | undefined
+    if (!x || x.diaRef !== DIA_REF) return atual
+    const { diaRef, ...dados } = x
+    void diaRef
+    return { ...atual, ...dados }
+  },
 }))
+
+function pegarDados(s: DadosState): Dados {
+  const { historico, estoque, movimentos, transferencias, mesas, comandas, vendas, fechamentos, retiradas, pedidos, alertas, notas, proximoLacre, proximoPedido } = s
+  return { historico, estoque, movimentos, transferencias, mesas, comandas, vendas, fechamentos, retiradas, pedidos, alertas, notas, proximoLacre, proximoPedido }
+}
 
 export function totaisPorForma(vendas: Venda[], unidadeId: UnidadeId): Record<FormaPagamento, number> {
   const t: Record<FormaPagamento, number> = { pix: 0, credito: 0, debito: 0, dinheiro: 0 }
   for (const v of vendas) {
     if (v.unidadeId !== unidadeId || v.origem === 'online') continue
-    if (new Date(v.em).toDateString() !== new Date().toDateString()) continue
+    if (!ehDiaOperacao(v.em)) continue
     // pagamento guarda o valor abatido da conta (o troco já fica de fora)
     for (const p of v.pagamentos) t[p.forma] += p.valor
   }

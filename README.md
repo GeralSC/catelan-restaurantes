@@ -1,7 +1,9 @@
 # Sistema de Gestão dos Restaurantes · protótipo
 
 Protótipo navegável, mobile first, para apresentar a Maryellen e Thiago Catelan.
-Sem backend: todos os dados são fictícios e ficam em memória. **Recarregar a página volta tudo ao estado inicial.**
+Sem backend: todos os dados são fictícios. O que for feito na demo fica salvo **no próprio aparelho** (localStorage):
+recarregar a página não perde nada. Para recomeçar, use **Reiniciar demonstração** no rodapé da tela inicial.
+Os dados salvos valem só para o dia: no dia seguinte a demo recomeça sozinha com horários novos.
 
 ## Rodar no computador
 
@@ -47,7 +49,8 @@ Sem GitHub, pela linha de comando: `npx vercel` (primeira vez pede login) e depo
 
 ## Roteiro de demonstração
 
-Faça tudo **sem recarregar a página** (use o botão "Trocar perfil"), senão os dados voltam ao início.
+Antes de começar, toque em **Reiniciar demonstração** (rodapé da tela inicial) para partir do zero.
+Para trocar de tela use o botão "Trocar perfil".
 
 1. Entrar como **Central** > aba **Enviar** > destino Gado Nobre, Picanha, **10** kg > **Enviar**.
    Anote o lacre gerado (ex.: `L-004825`).

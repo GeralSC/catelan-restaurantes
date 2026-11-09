@@ -11,6 +11,9 @@ import { getUnidade, unidadesRestaurante } from '../../data/cadastros'
 import { useUI } from '../../store/useUI'
 import { formatBRL, formatDataLonga, formatInt, formatKg, formatPct, formatQuando, saudacao } from '../../lib/format'
 import type { Alerta, UnidadeId } from '../../types'
+import { REF } from '../../lib/referencia'
+
+const dia = REF.ehHoje ? 'hoje' : 'ontem'
 
 const iconeAlerta = {
   divergencia_lacre: AlertOctagon,
@@ -50,6 +53,7 @@ export default function Painel() {
           <div>
             <h1 className="text-2xl font-extrabold tracking-tight">{saudacao()}, Maryellen</h1>
             <p className="text-muted">{formatDataLonga()}</p>
+            {!REF.ehHoje && <p className="text-sm text-ink-soft mt-1">Os restaurantes ainda não abriram: mostrando como fechou ontem.</p>}
           </div>
           <Link
             to="/painel/tv"
@@ -92,23 +96,23 @@ export default function Painel() {
         {/* Faturamento */}
         <div className="grid gap-3 sm:grid-cols-3">
           <Card className="p-5 sm:col-span-2 bg-gradient-to-br from-white to-primary-soft/40">
-            <p className="text-sm font-medium text-muted">Faturamento de hoje{filtro !== 'todas' ? ` · ${getUnidade(filtro).nome}` : ' · consolidado'}</p>
+            <p className="text-sm font-medium text-muted">Faturamento de {dia}{filtro !== 'todas' ? ` · ${getUnidade(filtro).nome}` : ' · consolidado'}</p>
             <p className="num text-4xl sm:text-5xl font-extrabold tracking-tight mt-1">{formatBRL(total)}</p>
             <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
               <Badge cor={variacao >= 0 ? 'verde' : 'vermelho'} className="text-sm">
                 {variacao >= 0 ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
                 <span className="num">{formatPct(variacao)}</span>
               </Badge>
-              <span className="text-muted">vs. mesmo dia da semana passada (<span className="num">{formatBRL(semanaPassada)}</span>)</span>
+              <span className="text-muted">vs. semana passada no mesmo horário (<span className="num">{formatBRL(semanaPassada)}</span>)</span>
             </div>
           </Card>
           <div className="grid grid-cols-2 sm:grid-cols-1 gap-3">
             <Card className="p-4">
-              <p className="text-xs font-medium text-muted flex items-center gap-1.5"><Users size={14} /> Clientes hoje</p>
+              <p className="text-xs font-medium text-muted flex items-center gap-1.5"><Users size={14} /> Clientes {dia}</p>
               <p className="num text-2xl font-bold mt-1">{formatInt(clientes)}</p>
             </Card>
             <Card className="p-4">
-              <p className="text-xs font-medium text-muted flex items-center gap-1.5"><ShoppingBag size={14} /> Pedidos online hoje</p>
+              <p className="text-xs font-medium text-muted flex items-center gap-1.5"><ShoppingBag size={14} /> Pedidos online {dia}</p>
               <p className="num text-2xl font-bold mt-1">{pedidosOnlineHoje}</p>
               <p className="num text-xs text-muted">{formatBRL(faturamentoOnlineHoje)}</p>
             </Card>
@@ -116,7 +120,7 @@ export default function Painel() {
         </div>
 
         {/* Cards por unidade */}
-        <Secao titulo="Unidades hoje">
+        <Secao titulo={`Unidades ${dia}`}>
           <div className="grid gap-3 sm:grid-cols-2">
             {visiveis.map((u) => {
               const un = getUnidade(u.unidadeId)
@@ -182,7 +186,7 @@ export default function Painel() {
 
         <div className="grid gap-6 lg:grid-cols-2">
           {/* Carne */}
-          <Secao titulo={<span className="flex items-center gap-2"><Beef size={18} className="text-primary" /> Carne consumida hoje</span>}>
+          <Secao titulo={<span className="flex items-center gap-2"><Beef size={18} className="text-primary" /> Carne consumida {dia}</span>}>
             <Card className="p-4">
               <div className="flex items-baseline justify-between">
                 <p className="num text-2xl font-extrabold">{formatKg(carneKg)}</p>

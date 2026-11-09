@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { AlertOctagon, Beef, Maximize, Minimize, ShoppingBag, Users, X } from 'lucide-react'
 import { useAlertas, usePainel } from '../../services'
 import { getUnidade } from '../../data/cadastros'
+import { REF } from '../../lib/referencia'
 import { formatBRL, formatDataLonga, formatInt, formatKg, formatQuando } from '../../lib/format'
 
 /** Painel para o telão: fundo escuro, letras grandes, atualiza a cada 10s. */
@@ -87,7 +88,7 @@ export default function ModoTV() {
 
       <section>
         <p className="text-white/60 text-lg sm:text-2xl flex items-center gap-3">
-          Faturamento de hoje · todas as unidades
+          Faturamento de {REF.ehHoje ? 'hoje' : 'ontem'} · todas as unidades
           <span className={`h-3 w-3 rounded-full bg-green-400 transition ${piscar ? 'scale-150 opacity-100' : 'opacity-60'}`} />
         </p>
         <p className={`num text-6xl sm:text-8xl lg:text-9xl font-extrabold tracking-tighter transition-colors duration-700 ${piscar ? 'text-green-300' : ''}`}>

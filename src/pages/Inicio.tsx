@@ -1,10 +1,14 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ChevronRight } from 'lucide-react'
+import { ChevronRight, RotateCcw } from 'lucide-react'
+import { Button, Modal } from '../components/ui'
+import { toast } from '../store/useUI'
 import { perfis } from '../data/perfis'
-import { useAlertas } from '../services'
+import { reiniciarDemonstracao, useAlertas } from '../services'
 
 export default function Inicio() {
   const alertas = useAlertas().filter((a) => !a.lido)
+  const [confirmar, setConfirmar] = useState(false)
   return (
     <div className="min-h-dvh flex flex-col">
       <div className="bg-ink text-white">
@@ -59,9 +63,41 @@ export default function Inicio() {
         </div>
       </main>
 
-      <footer className="text-center text-xs text-muted py-6 px-4">
-        Protótipo de demonstração · dados fictícios · Desenvolve Soluções
+      <footer className="text-center text-xs text-muted py-6 px-4 space-y-3">
+        <p>Protótipo de demonstração · dados fictícios · Desenvolve Soluções</p>
+        <button
+          onClick={() => setConfirmar(true)}
+          className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg text-muted hover:text-ink hover:bg-muted-light"
+        >
+          <RotateCcw size={14} /> Reiniciar demonstração
+        </button>
       </footer>
+
+      <Modal
+        aberto={confirmar}
+        onFechar={() => setConfirmar(false)}
+        titulo="Reiniciar demonstração?"
+        rodape={
+          <div className="grid grid-cols-2 gap-2">
+            <Button variante="secondary" onClick={() => setConfirmar(false)}>Cancelar</Button>
+            <Button
+              variante="dark"
+              onClick={async () => {
+                await reiniciarDemonstracao()
+                setConfirmar(false)
+                toast({ tipo: 'sucesso', titulo: 'Demonstração reiniciada', texto: 'Os dados voltaram ao início.' })
+              }}
+            >
+              Reiniciar
+            </Button>
+          </div>
+        }
+      >
+        <p className="text-ink-soft">
+          Tudo o que foi feito nesta demonstração (envios, recebimentos, mesas, vendas, pedidos) é apagado deste aparelho
+          e os dados fictícios voltam ao início.
+        </p>
+      </Modal>
     </div>
   )
 }

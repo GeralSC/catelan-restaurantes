@@ -37,8 +37,17 @@ Cada item: o que foi decidido e por quê. Tudo é fácil de mudar.
 22. **Leitura de câmera simulada**: no lacre, preenche `L-004822` (ou o primeiro em trânsito); no "Bipar" da Central, alterna entre produtos com código de barras e adiciona fardo de 12.
 23. **Alertas no painel**: mostra os 2 mais recentes e "Ver mais". "Marcar como visto" move para "Alertas já vistos".
 24. **Modo TV soma pequenas vendas simuladas a cada 10s** só na tela da TV (não altera os dados do resto do protótipo).
-25. **Mock com datas relativas a hoje**: comandas abertas "há X minutos", vendas entre 11h e 14h20 de hoje, envios às 7h40.
-    Se a demo for antes das 11h, algumas vendas aparecem com horário futuro. Não corrigi para não complicar.
+25. **Mock relativo ao horário em que a demo é aberta** (`src/lib/referencia.ts`, ajuste de 09/11):
+    - A partir das **11:30** o "dia" é hoje: vendas, pedidos e retiradas vão da abertura de cada unidade até agora;
+      as mesas abertas são comprimidas para depois da abertura do Gado Nobre e antes do fechamento.
+    - **Antes das 11:30** mostra o dia anterior como se fossem 22:30 ("Faturamento de ontem" e aviso no painel).
+      Usei 11:30 e não 10:30 (primeira abertura) para o Gado Nobre já ter meia hora de movimento; antes disso a churrascaria apareceria zerada.
+    - O faturamento até agora é proporcional ao expediente já passado, e o painel compara com a **semana passada no mesmo horário**.
+    - Os kg de carne retirados acompanham o faturamento (rendimento por kg coerente em qualquer horário).
+    - Testado com o relógio às 00:10, 08:00, 11:29, 11:31, 12:30, 15:10, 19:00 e 23:55: nenhum horário no futuro.
+35. **Estado salvo no localStorage** (com try/catch: se o navegador bloquear, segue só em memória). Guardo junto o dia de operação;
+    se o salvo for de outro dia, é descartado. "Reiniciar demonstração" pede confirmação.
+36. **Repositório na conta GeralSC** (conta do cliente), commits mantidos como DesenvolveSolucoes, como pedido.
 
 ## Visual
 26. **Sem emojis** (regra da casa): todos os ícones são lucide (SVG). Fotos dos pratos são blocos coloridos com ícone, prontos para trocar por foto real.

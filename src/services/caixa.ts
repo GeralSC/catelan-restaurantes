@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { useDados, totaisPorForma } from '../store/useDados'
 import type { Pagamento, UnidadeId } from '../types'
 
-const ehHoje = (iso: string) => new Date(iso).toDateString() === new Date().toDateString()
+import { ehDiaOperacao as ehHoje } from '../lib/referencia'
 
 export function useVendasHoje(unidadeId?: UnidadeId) {
   const vendas = useDados((s) => s.vendas)

@@ -1,10 +1,12 @@
-// Estado inicial do protótipo. Ao recarregar a página, tudo volta para cá.
+// Estado inicial do protótipo ("Reiniciar demonstração" volta para cá).
+// Todos os horários são relativos ao momento de referência (src/lib/referencia.ts): nunca há horário no futuro.
 import type {
   Alerta, Comanda, FaturamentoDia, ItemComanda, ItemEstoque, Mesa, Movimento, NotaEntrada,
   PedidoOnline, RetiradaFreezer, Transferencia, UnidadeId, Venda, FormaPagamento,
 } from '../types'
-import { cardapio, getCardapio, getProduto, unidades, unidadesRestaurante } from './cadastros'
-import { criarAleatorio, dataISO, emHora, minutosAtras } from '../lib/tempo'
+import { cardapio, funcionariosDa, getCardapio, getProduto, getUnidade, unidades, unidadesRestaurante } from './cadastros'
+import { criarAleatorio } from '../lib/tempo'
+import { REF, agoraMinRef, antesDaRef, dataRef, emMinRef, fracaoExpediente, paraMin } from '../lib/referencia'
 import { arred } from '../lib/format'
 
 const rnd = criarAleatorio(42)
@@ -19,7 +21,7 @@ const baseDiaria: Record<Exclude<UnidadeId, 'central'>, { valor: number; ticket:
 
 export const historicoInicial: FaturamentoDia[] = []
 for (let dias = 7; dias >= 1; dias--) {
-  const d = new Date()
+  const d = new Date(REF.dia)
   d.setDate(d.getDate() - dias)
   const dow = d.getDay() // 0 dom, 6 sáb
   const fator = dow === 0 ? 1.45 : dow === 6 ? 1.3 : dow === 5 ? 1.15 : dow === 1 ? 0.78 : 1
@@ -28,7 +30,7 @@ for (let dias = 7; dias >= 1; dias--) {
     // No protótipo todas as unidades abrem todos os dias (evita dia zerado no comparativo).
     const valor = arred(b.valor * fator * (0.9 + rnd() * 0.2), 2)
     historicoInicial.push({
-      data: dataISO(dias),
+      data: dataRef(dias),
       unidadeId: u.id,
       valor,
       clientes: Math.round(valor / b.ticket),
@@ -37,7 +39,7 @@ for (let dias = 7; dias >= 1; dias--) {
   }
 }
 
-// ---------- Vendas de hoje que já aconteceram antes da demonstração ----------
+// ---------- Vendas do dia de operação até o momento de referência ----------
 const formas: FormaPagamento[] = ['pix', 'pix', 'credito', 'credito', 'debito', 'dinheiro']
 const vendasIniciais: Venda[] = []
 // O total de hoje de cada unidade fica ancorado no mesmo dia da semana passada, com uma variação
@@ -51,11 +53,48 @@ const vendasPorUnidade: Record<string, { variacao: number; ticketVenda: number; 
 const caixaDe: Record<string, string> = {
   'gado-nobre': 'Patrícia', 'rancho-tijucas': 'Fernanda', 'rancho-biguacu': 'Gustavo', 'beira-rio': 'Vanessa',
 }
+/** Janela do expediente já transcorrida: da abertura até agora (ou até o fechamento). Em minutos do dia. */
+const janela = (unidadeId: UnidadeId) => {
+  const u = getUnidade(unidadeId)
+  const ini = paraMin(u.horarioAbertura)
+  const fim = Math.max(ini, Math.min(agoraMinRef() - 2, paraMin(u.horarioFechamento)))
+  return { ini, fim, fracao: fracaoExpediente(u.horarioAbertura, u.horarioFechamento) }
+}
+
+// ---------- Pedidos online do dia (Beira Rio) ----------
+const modelosPedido: Array<[string, string, number, Array<[string, number]>]> = [
+  ['Marcelo S.', 'centro', 5, [['mar-m', 2], ['beb-coca-lata', 2]]],
+  ['Bruna K.', 'coloninha', 7, [['mar-g', 1]]],
+  ['Jorge W.', 'bela-vista', 8, [['exe-bife', 1], ['mar-p', 1]]],
+  ['Simone R.', 'sete-setembro', 6, [['mar-m', 3]]],
+  ['Leandro P.', 'gasparinho', 10, [['exe-costela', 2], ['beb-guarana-2l', 1]]],
+  ['Aline M.', 'centro', 5, [['mar-p', 2], ['sob-pudim', 1]]],
+]
+const jBR = janela('beira-rio')
+const nPedidos = Math.max(1, Math.round(modelosPedido.length * jBR.fracao))
+const aindaAberto = jBR.fracao < 1
+export const pedidosIniciais: PedidoOnline[] = modelosPedido.slice(0, nPedidos).map(([cliente, bairroId, taxa, itens], i) => {
+  const its = itens.map(([id, q]) => { const c = getCardapio(id); return { cardapioId: id, nome: c.nome, quantidade: q, precoUnitario: c.preco } })
+  const subtotal = its.reduce((s, x) => s + x.precoUnitario * x.quantidade, 0)
+  const numero = 1041 + i
+  const status: PedidoOnline['status'] = aindaAberto && i === nPedidos - 1 ? 'preparo' : aindaAberto && i === nPedidos - 2 ? 'saiu' : 'entregue'
+  const minuto = jBR.ini + Math.floor(((i + 0.5) / nPedidos) * (jBR.fim - jBR.ini))
+  return {
+    id: `p-${numero}`, numero, unidadeId: 'beira-rio', cliente, telefone: '(47) 9 9999-0000', bairroId,
+    endereco: 'Endereço do cliente', formaPagamento: 'pix', itens: its, subtotal, taxaEntrega: taxa,
+    total: subtotal + taxa, status, em: emMinRef(minuto),
+  }
+})
+export const proximoPedidoInicial = 1041 + nPedidos
+const totalOnline = pedidosIniciais.reduce((s, p) => s + p.total, 0)
+
 for (const [unidadeId, cfg] of Object.entries(vendasPorUnidade)) {
-  const semanaPassada = historicoInicial.find((h) => h.unidadeId === unidadeId && h.data === dataISO(7))!.valor
-  // pedidos online do Beira Rio também contam no faturamento: descontamos uma estimativa
-  const alvo = semanaPassada * (1 + cfg.variacao) - (unidadeId === 'beira-rio' ? 406 : 0)
-  const qtd = Math.max(8, Math.round(alvo / cfg.ticketVenda))
+  const semanaPassada = historicoInicial.find((h) => h.unidadeId === unidadeId && h.data === dataRef(7))!.valor
+  const j = janela(unidadeId as UnidadeId)
+  // faturamento até agora = semana passada no mesmo ponto do expediente, com a variação da unidade.
+  // Os pedidos online do Beira Rio também contam no faturamento, então saem do alvo do balcão.
+  const alvo = Math.max(150, semanaPassada * (1 + cfg.variacao) * j.fracao - (unidadeId === 'beira-rio' ? totalOnline : 0))
+  const qtd = Math.max(2, Math.round(alvo / cfg.ticketVenda))
   const brutos = Array.from({ length: qtd }, () => 0.55 + rnd() * 0.9)
   const soma = brutos.reduce((a, b) => a + b, 0)
   let acumulado = 0
@@ -64,7 +103,7 @@ for (const [unidadeId, cfg] of Object.entries(vendasPorUnidade)) {
     acumulado += total
     const forma = formas[Math.floor(rnd() * formas.length)]!
     const ehMarmita = unidadeId !== 'gado-nobre' && rnd() < 0.3
-    const minuto = 11 * 60 + Math.floor((i / qtd) * 200)
+    const minuto = j.ini + Math.floor(((i + 0.5) / qtd) * (j.fim - j.ini))
     vendasIniciais.push({
       id: `v-ini-${unidadeId}-${i}`,
       unidadeId: unidadeId as UnidadeId,
@@ -74,14 +113,22 @@ for (const [unidadeId, cfg] of Object.entries(vendasPorUnidade)) {
       pagamentos: [{ forma, valor: total }],
       clientes: cfg.pessoas[0] + Math.floor(rnd() * (cfg.pessoas[1] - cfg.pessoas[0] + 1)),
       feitaPor: caixaDe[unidadeId]!,
-      em: emHora(`${String(Math.floor(minuto / 60)).padStart(2, '0')}:${String(minuto % 60).padStart(2, '0')}`),
+      em: emMinRef(minuto),
     })
   })
 }
 export { vendasIniciais }
 
 // ---------- Mesas e comandas do Gado Nobre ----------
-const item = (cardapioId: string, quantidade: number, por: string, minAtras: number, cancelado?: { por: string; minAtras: number }): ItemComanda => {
+// Os "minutos atrás" abaixo são comprimidos se o Gado Nobre abriu há pouco tempo
+// (nenhuma mesa aparece aberta antes da abertura).
+const minutosDesdeAbertura = agoraMinRef() - paraMin(getUnidade('gado-nobre').horarioAbertura)
+const escalaMesas = Math.min(1, Math.max(0.05, (minutosDesdeAbertura - 3) / 115))
+// depois do fechamento, as últimas mesas ficam como abertas até a hora de fechar (não depois)
+const depoisDoFechamento = Math.max(0, agoraMinRef() - paraMin(getUnidade('gado-nobre').horarioFechamento))
+const minutosAtras = (min: number) => antesDaRef(min * escalaMesas + depoisDoFechamento)
+
+const item =(cardapioId: string, quantidade: number, por: string, minAtras: number, cancelado?: { por: string; minAtras: number }): ItemComanda => {
   const c = getCardapio(cardapioId)
   return {
     id: `ic-${cardapioId}-${minAtras}-${quantidade}-${Math.floor(rnd() * 1e6)}`,
@@ -170,33 +217,49 @@ export const estoqueInicial: ItemEstoque[] = [
 
 // ---------- Transferências ----------
 export const transferenciasIniciais: Transferencia[] = [
-  { id: 't-1', lacre: 'L-004821', origemId: 'central', destinoId: 'gado-nobre', produtoId: 'alcatra', quantidadeEnviada: 15, volumes: 2, enviadoPor: 'Rodrigo', enviadoEm: emHora('07:40'), status: 'em_transito' },
-  { id: 't-2', lacre: 'L-004822', origemId: 'central', destinoId: 'gado-nobre', produtoId: 'picanha', quantidadeEnviada: 10, volumes: 1, enviadoPor: 'Rodrigo', enviadoEm: emHora('07:42'), status: 'em_transito' },
-  { id: 't-3', lacre: 'L-004823', origemId: 'central', destinoId: 'gado-nobre', produtoId: 'fraldinha', quantidadeEnviada: 12.5, volumes: 2, enviadoPor: 'Eliane', enviadoEm: emHora('07:45'), status: 'em_transito' },
-  { id: 't-4', lacre: 'L-004819', origemId: 'central', destinoId: 'rancho-tijucas', produtoId: 'costela', quantidadeEnviada: 18, volumes: 2, enviadoPor: 'Rodrigo', enviadoEm: emHora('06:50'), status: 'conferido', quantidadeRecebida: 17.9, recebidoPor: 'Adriana', recebidoEm: emHora('08:05') },
-  { id: 't-5', lacre: 'L-004820', origemId: 'central', destinoId: 'beira-rio', produtoId: 'coxa', quantidadeEnviada: 20, volumes: 2, enviadoPor: 'Eliane', enviadoEm: emHora('06:55'), status: 'conferido', quantidadeRecebida: 20.05, recebidoPor: 'Rosângela', recebidoEm: emHora('08:20') },
-  { id: 't-6', lacre: 'L-004824', origemId: 'central', destinoId: 'rancho-biguacu', produtoId: 'alcatra', quantidadeEnviada: 8, volumes: 1, enviadoPor: 'Márcio', enviadoEm: emHora('08:10'), status: 'em_transito' },
+  { id: 't-1', lacre: 'L-004821', origemId: 'central', destinoId: 'gado-nobre', produtoId: 'alcatra', quantidadeEnviada: 15, volumes: 2, enviadoPor: 'Rodrigo', enviadoEm: emMinRef(paraMin('07:40')), status: 'em_transito' },
+  { id: 't-2', lacre: 'L-004822', origemId: 'central', destinoId: 'gado-nobre', produtoId: 'picanha', quantidadeEnviada: 10, volumes: 1, enviadoPor: 'Rodrigo', enviadoEm: emMinRef(paraMin('07:42')), status: 'em_transito' },
+  { id: 't-3', lacre: 'L-004823', origemId: 'central', destinoId: 'gado-nobre', produtoId: 'fraldinha', quantidadeEnviada: 12.5, volumes: 2, enviadoPor: 'Eliane', enviadoEm: emMinRef(paraMin('07:45')), status: 'em_transito' },
+  { id: 't-4', lacre: 'L-004819', origemId: 'central', destinoId: 'rancho-tijucas', produtoId: 'costela', quantidadeEnviada: 18, volumes: 2, enviadoPor: 'Rodrigo', enviadoEm: emMinRef(paraMin('06:50')), status: 'conferido', quantidadeRecebida: 17.9, recebidoPor: 'Adriana', recebidoEm: emMinRef(paraMin('08:05')) },
+  { id: 't-5', lacre: 'L-004820', origemId: 'central', destinoId: 'beira-rio', produtoId: 'coxa', quantidadeEnviada: 20, volumes: 2, enviadoPor: 'Eliane', enviadoEm: emMinRef(paraMin('06:55')), status: 'conferido', quantidadeRecebida: 20.05, recebidoPor: 'Rosângela', recebidoEm: emMinRef(paraMin('08:20')) },
+  { id: 't-6', lacre: 'L-004824', origemId: 'central', destinoId: 'rancho-biguacu', produtoId: 'alcatra', quantidadeEnviada: 8, volumes: 1, enviadoPor: 'Márcio', enviadoEm: emMinRef(paraMin('08:10')), status: 'em_transito' },
 ]
 
 // ---------- Retiradas do freezer ----------
 const retirada = (id: string, unidadeId: UnidadeId, funcionarioId: string, funcionarioNome: string, produtoId: string, quantidade: number, em: string, foraDoHorario = false): RetiradaFreezer =>
   ({ id, unidadeId, funcionarioId, funcionarioNome, produtoId, quantidade, em, foraDoHorario })
 
+// Carne retirada no dia = o que a unidade costuma usar para faturar o que já faturou (rendimento coerente).
+// Horários entre 2h antes da abertura (preparo) e o momento de referência.
+const quemRetira: Record<string, string[]> = {
+  'gado-nobre': ['f-gn-1', 'f-gn-5'], 'rancho-tijucas': ['f-rt-2', 'f-rt-1'],
+  'rancho-biguacu': ['f-rb-2', 'f-rb-1'], 'beira-rio': ['f-br-1'],
+}
+const retiradasDoDia: RetiradaFreezer[] = []
+for (const u of unidadesRestaurante) {
+  const fat = vendasIniciais.filter((v) => v.unidadeId === u.id).reduce((s, v) => s + v.total, 0)
+    + (u.id === 'beira-rio' ? totalOnline : 0)
+  const kgTotal = fat * baseDiaria[u.id as keyof typeof baseDiaria].kgPorReal * (0.96 + rnd() * 0.08)
+  const cortes = estoqueInicial.filter((e) => e.unidadeId === u.id && getProduto(e.produtoId).categoria === 'carne')
+  const n = Math.min(cortes.length, u.id === 'gado-nobre' ? 7 : 3)
+  const pesos = Array.from({ length: n }, () => 0.6 + rnd() * 0.8)
+  const somaP = pesos.reduce((a, b) => a + b, 0)
+  const ini = paraMin(u.horarioAbertura) - 120
+  const fim = Math.min(agoraMinRef() - 3, paraMin(u.horarioFechamento))
+  const equipe = funcionariosDa(u.id)
+  pesos.forEach((p, i) => {
+    const fid = quemRetira[u.id]![i % quemRetira[u.id]!.length]!
+    retiradasDoDia.push(retirada(
+      `r-${u.id}-${i}`, u.id, fid, equipe.find((f) => f.id === fid)!.nome, cortes[i]!.produtoId,
+      arred((p / somaP) * kgTotal, 3), emMinRef(ini + Math.floor(((i + 0.3) / n) * (fim - ini))),
+    ))
+  })
+}
+
 export const retiradasIniciais: RetiradaFreezer[] = [
-  retirada('r-0', 'gado-nobre', 'f-gn-6', 'Diego', 'picanha', 4.2, emHora('23:15', 1), true),
-  retirada('r-1', 'gado-nobre', 'f-gn-1', 'Carlos', 'picanha', 9.6, emHora('09:35')),
-  retirada('r-2', 'gado-nobre', 'f-gn-1', 'Carlos', 'alcatra', 12.4, emHora('09:38')),
-  retirada('r-3', 'gado-nobre', 'f-gn-5', 'Wellington', 'costela', 15.8, emHora('09:52')),
-  retirada('r-4', 'gado-nobre', 'f-gn-5', 'Wellington', 'linguica', 6.2, emHora('10:05')),
-  retirada('r-5', 'gado-nobre', 'f-gn-1', 'Carlos', 'cupim', 7.3, emHora('10:10')),
-  retirada('r-6', 'gado-nobre', 'f-gn-1', 'Carlos', 'fraldinha', 8.1, emHora('12:20')),
-  retirada('r-7', 'gado-nobre', 'f-gn-5', 'Wellington', 'coracao', 3.4, emHora('12:45')),
-  retirada('r-8', 'rancho-tijucas', 'f-rt-2', 'Marcos', 'alcatra', 6.5, emHora('09:50')),
-  retirada('r-9', 'rancho-tijucas', 'f-rt-1', 'Adriana', 'coxa', 7.2, emHora('09:55')),
-  retirada('r-10', 'rancho-biguacu', 'f-rb-2', 'Anderson', 'alcatra', 5.8, emHora('09:40')),
-  retirada('r-11', 'rancho-biguacu', 'f-rb-1', 'Jéssica', 'costela', 6.9, emHora('10:00')),
-  retirada('r-12', 'beira-rio', 'f-br-1', 'Rosângela', 'costela', 9.4, emHora('09:30')),
-  retirada('r-13', 'beira-rio', 'f-br-1', 'Rosângela', 'coxa', 8.6, emHora('09:45')),
+  // a retirada suspeita: noite anterior, com o restaurante fechado
+  retirada('r-0', 'gado-nobre', 'f-gn-6', 'Diego', 'picanha', 4.2, emMinRef(paraMin('23:15'), 1), true),
+  ...retiradasDoDia,
 ]
 
 // ---------- Alertas iniciais ----------
@@ -205,33 +268,14 @@ export const alertasIniciais: Alerta[] = [
     id: 'a-1', tipo: 'freezer_fora_horario', unidadeId: 'gado-nobre',
     titulo: 'Retirada do freezer fora do horário',
     detalhe: `${'4,200 kg'} de Picanha retirados com o restaurante fechado`,
-    quem: 'Diego', em: emHora('23:15', 1), valor: arred(4.2 * getProduto('picanha').custo), lido: false,
+    quem: 'Diego', em: emMinRef(paraMin('23:15'), 1), valor: arred(4.2 * getProduto('picanha').custo), lido: false,
   },
   {
     id: 'a-2', tipo: 'diferenca_caixa', unidadeId: 'rancho-biguacu',
     titulo: 'Falta no fechamento de caixa',
     detalhe: 'Dinheiro contado menor que o registrado no sistema',
-    quem: 'Gustavo', em: emHora('15:42', 1), valor: 42, lido: false,
+    quem: 'Gustavo', em: emMinRef(paraMin('15:42'), 1), valor: 42, lido: false,
   },
-]
-
-// ---------- Pedidos online de hoje (Beira Rio) ----------
-const ped = (numero: number, cliente: string, bairroId: string, taxa: number, itens: Array<[string, number]>, status: PedidoOnline['status'], hora: string): PedidoOnline => {
-  const its = itens.map(([id, q]) => { const c = getCardapio(id); return { cardapioId: id, nome: c.nome, quantidade: q, precoUnitario: c.preco } })
-  const subtotal = its.reduce((s, i) => s + i.precoUnitario * i.quantidade, 0)
-  return {
-    id: `p-${numero}`, numero, unidadeId: 'beira-rio', cliente, telefone: '(47) 9 9999-0000', bairroId,
-    endereco: 'Endereço do cliente', formaPagamento: 'pix', itens: its, subtotal, taxaEntrega: taxa,
-    total: subtotal + taxa, status, em: emHora(hora),
-  }
-}
-export const pedidosIniciais: PedidoOnline[] = [
-  ped(1041, 'Marcelo S.', 'centro', 5, [['mar-m', 2], ['beb-coca-lata', 2]], 'entregue', '11:05'),
-  ped(1042, 'Bruna K.', 'coloninha', 7, [['mar-g', 1]], 'entregue', '11:18'),
-  ped(1043, 'Jorge W.', 'bela-vista', 8, [['exe-bife', 1], ['mar-p', 1]], 'entregue', '11:32'),
-  ped(1044, 'Simone R.', 'sete-setembro', 6, [['mar-m', 3]], 'entregue', '11:50'),
-  ped(1045, 'Leandro P.', 'gasparinho', 10, [['exe-costela', 2], ['beb-guarana-2l', 1]], 'saiu', '12:10'),
-  ped(1046, 'Aline M.', 'centro', 5, [['mar-p', 2], ['sob-pudim', 1]], 'preparo', '12:24'),
 ]
 
 export const notasIniciais: NotaEntrada[] = []

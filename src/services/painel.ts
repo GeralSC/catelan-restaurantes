@@ -2,9 +2,7 @@ import { useMemo } from 'react'
 import { useDados } from '../store/useDados'
 import { getProduto, unidadesRestaurante } from '../data/cadastros'
 import type { UnidadeId } from '../types'
-import { dataISO } from '../lib/tempo'
-
-const ehHoje = (iso: string) => new Date(iso).toDateString() === new Date().toDateString()
+import { dataRef, ehDiaOperacao as ehHoje, fracaoExpediente, rotuloDiaRef } from '../lib/referencia'
 
 export interface ResumoUnidade {
   unidadeId: UnidadeId
@@ -34,7 +32,9 @@ export function usePainel() {
       const carneKg = retiradas
         .filter((r) => r.unidadeId === u.id && ehHoje(r.em) && getProduto(r.produtoId).categoria === 'carne')
         .reduce((s, r) => s + r.quantidade, 0)
-      const semanaPassada = historico.find((h) => h.unidadeId === u.id && h.data === dataISO(7))?.valor ?? 0
+      // semana passada no MESMO ponto do expediente (comparação justa durante o dia)
+      const semanaPassada = (historico.find((h) => h.unidadeId === u.id && h.data === dataRef(7))?.valor ?? 0)
+        * fracaoExpediente(u.horarioAbertura, u.horarioFechamento)
       const [ah, am] = u.horarioAbertura.split(':').map(Number)
       const [fh, fm] = u.horarioFechamento.split(':').map(Number)
       return {
@@ -52,9 +52,9 @@ export function usePainel() {
 
     // últimos 7 dias (6 de histórico + hoje)
     const grafico = [6, 5, 4, 3, 2, 1, 0].map((d) => {
-      const data = dataISO(d)
+      const data = dataRef(d)
       const linha: Record<string, string | number> = {
-        dia: d === 0 ? 'Hoje' : new Date(data + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', ''),
+        dia: d === 0 ? rotuloDiaRef : new Date(data + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', ''),
       }
       for (const u of unidadesRestaurante) {
         linha[u.id] = d === 0
@@ -81,3 +81,6 @@ export function useAlertas() {
 }
 
 export const marcarAlertaLido = async (id: string) => useDados.getState().marcarAlertaLido(id)
+
+/** Apaga tudo o que foi feito na demonstração e volta aos dados iniciais. */
+export const reiniciarDemonstracao = async () => useDados.getState().reiniciarDemo()
